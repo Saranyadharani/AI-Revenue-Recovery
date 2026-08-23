@@ -1,8 +1,8 @@
 # AI Revenue Recovery Agent
 
-built for the razorpay ai buildathon 2026 - AI Revenue Recovery track.
+Built for the Razorpay AI Buildathon 2026 - AI Revenue Recovery track.
 
-an agent that looks at failed payments, abandoned checkouts, and overdue
+I build an Agent that looks at failed payments, abandoned checkouts, and overdue
 invoices, figures out why they failed using RAG over failure-code + policy
 docs, then decides on a recovery action through MCP tools - bounded by
 stopping rules (circuit breaker) so it can't retry forever or act outside
@@ -11,7 +11,7 @@ fires, so there's a full audit trail even if something crashes mid-flow.
 
 ## Architecture
 
-<img width="2967" height="1274" alt="image" src="https://github.com/user-attachments/assets/dab8fb2b-0363-4a12-a837-3e98b4e53eb0" />
+  <img width="2967" height="1274" alt="image" src="https://github.com/user-attachments/assets/dab8fb2b-0363-4a12-a837-3e98b4e53eb0" />
 
 ## setup
 
@@ -63,7 +63,7 @@ frontend/
       AuditDrawer.jsx           - click-through audit trail
 ```
 
-## what's simulated vs real
+## What's simulated vs Real
 
 - MCP server and tools: real, using the official python mcp sdk
 - LangChain agent: real, calls a real llm (groq/llama-3.3-70b)
@@ -74,10 +74,10 @@ frontend/
   success rates, since this is a demo and not actually wired to a real
   payment gateway or sms/email provider.
 
-## known limitations / next steps
+## Known limitations
 
 - circuit breaker cooldowns are attempt-count based, not real timestamp-based
   cooldowns (would need a scheduler for that)
-- no auth on the dashboard, fine for a demo not for production
+- I have not build a login page for authentication keep it simple for demo 
 - batch run is synchronous/blocking - fine for ~80 txns, would need a
   background job queue for a bigger batch
