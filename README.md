@@ -9,17 +9,9 @@ stopping rules (circuit breaker) so it can't retry forever or act outside
 policy. every decision gets written to an outbox table before any action
 fires, so there's a full audit trail even if something crashes mid-flow.
 
-## architecture
+## Architecture
 
-payment/checkout events -> RAG store (failure docs + policy) -> LangChain
-agent (diagnoses + proposes action) -> circuit breaker (final say on
-whether action is allowed) -> outbox write (decision logged) -> MCP tool
-call (retry / recovery link / escalate) -> audit log -> dashboard
-
-modeled loosely on patterns razorpay themselves have written about publicly
-(event-driven processing, outbox pattern for reliability, circuit breakers).
-used sqlite instead of kafka/postgres/redis since this is a solo 2-week
-hackathon build, not production infra - see LEARNINGS.md for that tradeoff.
+<img width="2967" height="1274" alt="image" src="https://github.com/user-attachments/assets/dab8fb2b-0363-4a12-a837-3e98b4e53eb0" />
 
 ## setup
 
