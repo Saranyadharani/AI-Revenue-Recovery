@@ -44,7 +44,7 @@ retry indefinitely or act outside policy.
 | Backend API | FastAPI |
 | Database | SQLite (outbox pattern: `transactions`, `decisions`, `audit_log`) |
 | Frontend | React + Vite |
-| Deployment | Backend on Render (Docker), frontend on Vercel |
+| Deployment | Backend on Render,frontend on Vercel |
 
 ## Project structure
 
