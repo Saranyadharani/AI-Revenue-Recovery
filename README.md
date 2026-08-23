@@ -74,10 +74,10 @@ frontend/
 docs/
   ARCHITECTURE.md                          - full design writeup + requirement mapping
   LEARNINGS.md                              - what broke and how it got fixed, as it happened
+```
 
-"""
 
-## Known limitations / next steps
+##Known limitations / next steps
 
 - Circuit breaker cooldowns are attempt-count based, not real timestamp
   cooldowns — would need a scheduler for genuine time-based rate limiting
