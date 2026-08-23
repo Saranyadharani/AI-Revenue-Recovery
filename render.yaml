@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: revenue-recovery-agent-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: SKIP_SEED
+        value: false
+      - key: ALLOWED_ORIGINS
+        value: https://ai-revenue-recovery.vercel.app,http://localhost:5173
