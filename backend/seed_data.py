@@ -5,6 +5,7 @@ real razorpay/payment gateway error codes i found online.
 """
 
 import random
+import os
 from db import get_conn, init_db, now
 
 random.seed(42)  # keeping this fixed so results are reproducible for the demo
@@ -33,6 +34,14 @@ FAILURE_TYPES = {
 CUSTOMER_PREFIX = ["cust", "usr", "biz"]
 
 
+def reset_database():
+    """Delete existing database to start fresh"""
+    db_path = "data/recovery.db"
+    if os.path.exists(db_path):
+        os.remove(db_path)
+        print("Removed existing database")
+
+
 def make_fake_transactions(n=80):
     conn = get_conn()
     cur = conn.cursor()
@@ -56,9 +65,10 @@ def make_fake_transactions(n=80):
 
     conn.commit()
     conn.close()
-    print(f"inserted {n} fake transactions")
+    print(f"Inserted {n} fake transactions")
 
 
 if __name__ == "__main__":
+    reset_database()
     init_db()
     make_fake_transactions(80)
