@@ -1,11 +1,4 @@
-"""
-server.py - wires our 3 recovery actions up as an actual MCP server.
-
-using the official python mcp sdk (fastmcp). this is what lets the langchain
-agent call these as real "tools" instead of just importing functions directly -
-which was kind of the whole point of using mcp here, to have a proper bounded
-tool layer with typed inputs instead of the agent freeform calling python.
-"""
+"server.py - wires our 3 recovery actions up as an actual MCP server.using the official python mcp sdk (fastmcp)."
 
 import sys
 import os
@@ -39,5 +32,4 @@ def escalate_to_human_tool(txn_id: int) -> dict:
 
 
 if __name__ == "__main__":
-    # run with: python server.py
     mcp.run()
