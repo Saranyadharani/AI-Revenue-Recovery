@@ -1,21 +1,3 @@
-"""
-agent.py
-
-the actual brains of the project. for each pending transaction:
-  1. pull relevant docs from rag_store (failure reason + policy)
-  2. ask the llm to diagnose + decide an action, given the docs
-  3. check circuit_breaker before doing anything (this can override the llm!)
-  4. write the decision to the outbox table BEFORE calling any tool
-  5. call the right mcp tool
-  6. log what happened to audit_log
-
-note: step 3 is important - even if the llm says "retry", if the circuit
-breaker says no more attempts, we escalate instead. the llm doesn't get to
-override the safety rules, its only proposing an action.
-
-using groq because its free and fast, model is llama-3.3-70b via groq's api.
-"""
-
 import os
 import sys
 import json
@@ -83,8 +65,6 @@ Relevant context:
 
     resp = llm.invoke([SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=user_msg)])
 
-    # llms sometimes wrap json in markdown fences even when told not to, so
-    # strip that out before parsing
     raw = resp.content.strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
@@ -94,7 +74,6 @@ Relevant context:
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
-        # fallback if the model didn't behave - just escalate to be safe
         parsed = {
             "diagnosis": "could not parse model output",
             "action": "escalate_to_human",
@@ -105,7 +84,7 @@ Relevant context:
 
 
 def process_transaction(llm, txn_id):
-    """runs the full pipeline for one transaction. this is the function
+    """ It runs the full pipeline for one transaction. this is the function
     that gets called in a loop over the whole batch"""
     conn = get_conn()
     txn = conn.execute("SELECT * FROM transactions WHERE id=?", (txn_id,)).fetchone()
@@ -115,7 +94,7 @@ def process_transaction(llm, txn_id):
         return None
 
     if txn["status"] not in ("pending",):
-        return None  # skip stuff thats already resolved/escalated
+        return None  #  This skip stuff thats already resolved/escalated
 
     # step 1+2: get llm's proposed diagnosis + action
     decision = diagnose_and_decide(llm, txn)
@@ -132,8 +111,8 @@ def process_transaction(llm, txn_id):
     else:
         final_action = proposed_action
 
-    # step 4: write to outbox BEFORE calling any tool - this is the important part,
-    # we want a record of the decision even if the tool call below fails/crashes
+    # step 4: write to outbox BEFORE calling any tool
+    # It keeps a  record of the decision even if the tool call below fails/crashes
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
