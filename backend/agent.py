@@ -1,3 +1,21 @@
+"""
+agent.py
+
+the actual brains of the project. for each pending transaction:
+  1. pull relevant docs from rag_store (failure reason + policy)
+  2. ask the llm to diagnose + decide an action, given the docs
+  3. check circuit_breaker before doing anything (this can override the llm!)
+  4. write the decision to the outbox table BEFORE calling any tool
+  5. call the right mcp tool
+  6. log what happened to audit_log
+
+note: step 3 is important - even if the llm says "retry", if the circuit
+breaker says no more attempts, we escalate instead. the llm doesn't get to
+override the safety rules, its only proposing an action.
+
+using groq because its free and fast, model is llama-3.3-70b via groq's api.
+"""
+
 import os
 import sys
 import json
@@ -113,6 +131,14 @@ def process_transaction(llm, txn_id):
     else:
         final_action = proposed_action
 
+    # Map final_action to status
+    status_map = {
+        "retry_payment": "resolved",
+        "send_recovery_link": "resolved",
+        "escalate_to_human": "escalated"
+    }
+    final_status = status_map.get(final_action, "resolved")
+
     # step 4: write to outbox BEFORE calling any tool
     # It keeps a  record of the decision even if the tool call below fails/crashes
     conn = get_conn()
@@ -123,7 +149,7 @@ def process_transaction(llm, txn_id):
         (txn_id, decision["diagnosis"], final_action, decision["reasoning"], policy_reason, now()),
     )
     decision_id = cur.lastrowid
-    conn.execute("UPDATE transactions SET status='processing' WHERE id=?", (txn_id,))
+    cur.execute("UPDATE transactions SET status='processing' WHERE id=?", (txn_id,))
     conn.commit()
     conn.close()
 
@@ -131,9 +157,10 @@ def process_transaction(llm, txn_id):
     action_func = ACTION_FUNCS[final_action]
     result = action_func(txn_id)
 
-    # step 6: audit log
+    # step 6: audit log AND update final status
     conn = get_conn()
-    conn.execute(
+    cur = conn.cursor()
+    cur.execute(
         """INSERT INTO audit_log (txn_id, decision_id, action, outcome, amount_recovered, notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (
@@ -145,6 +172,11 @@ def process_transaction(llm, txn_id):
             result.get("notes", ""),
             now(),
         ),
+    )
+    # Update transaction status to final state
+    cur.execute(
+        "UPDATE transactions SET status=? WHERE id=?",
+        (final_status, txn_id)
     )
     conn.commit()
     conn.close()
