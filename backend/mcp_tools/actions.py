@@ -1,6 +1,4 @@
 """
-actions.py
-
 the actual "business logic" for our 3 recovery actions. kept separate from
 the mcp server wiring so i can unit test these without spinning up mcp stuff.
 
