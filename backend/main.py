@@ -1,17 +1,23 @@
-import os
-import subprocess
+"""
+main.py - fastapi app that serves data to the react dashboard.
+
+kept the api pretty flat/simple - a stats endpoint for the headline numbers,
+a transactions endpoint for the table, and one to trigger the agent batch run.
+not doing any auth since this is just a demo, would obviously need that for
+anything real.
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import get_conn, init_db
-import agent
 
 app = FastAPI(title="revenue recovery agent api")
 
 # allow the react dev server to hit this locally
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173","https://ai-revenue-recovery-silk.vercel.app","https://ai-revenue-recovery-git-main-saranyadharani84-3817s-projects.vercel.app/","https://ai-revenue-recovery-silk.vercel.app/"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -19,21 +25,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
-    # Reset and seed database with fresh transactions
-    db_path = "data/recovery.db"
-    if os.path.exists(db_path):
-        os.remove(db_path)
-        print("Removed existing database")
-    
     init_db()
-    subprocess.run(["python", "seed_data.py"], check=True)
-    print("Database seeded with 80 fresh transactions")
-    
-    # Verify count
-    conn = get_conn()
-    count = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
-    conn.close()
-    print(f"Total transactions: {count}")
 
 
 @app.get("/api/stats")
@@ -104,8 +96,29 @@ def get_txn_audit(txn_id: int):
 
 @app.post("/api/run-batch")
 def run_batch_endpoint():
+    """kicks off the agent over all pending txns. this can take a while since
+    its calling the llm once per transaction, so its blocking for the demo -
+    fine for a batch of ~80, would need a background job for anything bigger"""
+    import agent
     results = agent.run_batch()
     return {"processed": len(results), "results": results}
+
+
+@app.post("/api/reset")
+def reset_endpoint():
+    """wipes all data and reseeds 80 fresh pending transactions. lets us
+    get a clean demo state on the deployed version without needing shell
+    access to render - just hit this from the dashboard before a demo"""
+    import os
+    import seed_data
+
+    db_path = "data/recovery.db"
+    if os.path.exists(db_path):
+        os.remove(db_path)
+
+    init_db()
+    seed_data.make_fake_transactions(80)
+    return {"status": "reset", "transactions_created": 80}
 
 
 if __name__ == "__main__":
