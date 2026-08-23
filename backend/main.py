@@ -1,3 +1,5 @@
+import os
+import subprocess
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,7 +18,22 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
+    # Reset and seed database with fresh transactions
+    db_path = "data/recovery.db"
+    if os.path.exists(db_path):
+        os.remove(db_path)
+        print("Removed existing database")
+    
+    # Initialize and seed
     init_db()
+    subprocess.run(["python", "seed_data.py"], check=True)
+    print("Database seeded with 80 fresh transactions")
+    
+    # Verify count
+    conn = get_conn()
+    count = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
+    conn.close()
+    print(f"Total transactions: {count}")
 
 
 @app.get("/api/stats")
