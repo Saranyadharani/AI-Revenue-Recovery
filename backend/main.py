@@ -1,12 +1,3 @@
-"""
-main.py - fastapi app that serves data to the react dashboard.
-
-kept the api pretty flat/simple - a stats endpoint for the headline numbers,
-a transactions endpoint for the table, and one to trigger the agent batch run.
-not doing any auth since this is just a demo, would obviously need that for
-anything real.
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -96,9 +87,6 @@ def get_txn_audit(txn_id: int):
 
 @app.post("/api/run-batch")
 def run_batch_endpoint():
-    """kicks off the agent over all pending txns. this can take a while since
-    its calling the llm once per transaction, so its blocking for the demo -
-    fine for a batch of ~80, would need a background job for anything bigger"""
     import agent
     results = agent.run_batch()
     return {"processed": len(results), "results": results}
