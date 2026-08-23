@@ -4,7 +4,7 @@ import TransactionTable from "./components/TransactionTable";
 import AuditDrawer from "./components/AuditDrawer";
 import "./index.css";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 function App() {
   const [stats, setStats] = useState(null);
