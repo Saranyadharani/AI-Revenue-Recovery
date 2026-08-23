@@ -20,10 +20,6 @@ retry indefinitely or act outside policy.
 
 <img width="2967" height="1274" alt="architecture diagram" src="https://github.com/user-attachments/assets/a46f97a5-5b82-4601-8295-747d2038283f" />
 
-Full breakdown of every design decision, including which parts are modeled
-on Razorpay's own public engineering patterns (event-driven processing,
-outbox pattern, circuit breakers) and why SQLite was chosen over
-Kafka/Postgres/Redis for this build, is in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 ## What's real vs simulated
 
@@ -77,7 +73,7 @@ docs/
 ```
 
 
-##Known limitations / next steps
+Known limitations/Future Enhancements
 
 - Circuit breaker cooldowns are attempt-count based, not real timestamp
   cooldowns — would need a scheduler for genuine time-based rate limiting
@@ -88,9 +84,3 @@ docs/
   constraint at higher volume or on a paid tier
 - RAG retrieval is keyword-based, not embedding-based — fine at ~15 docs,
   wouldn't scale to a large knowledge base as-is
-
-See **[docs/LEARNINGS.md](docs/LEARNINGS.md)** for the full list of things
-that broke during development and how each was actually fixed — including a
-deprecated model that returned a confusing 404, a Groq token-per-minute
-limit that looked like a request-rate problem at first, and a Vercel build
-that silently kept serving a stale deployment after a syntax error.
