@@ -1,10 +1,10 @@
-"---" 
-"title: Revenue Recovery Agent API" 
-"emoji: ??" 
-"colorFrom: blue" 
-"colorTo: navy" 
-"sdk: gradio" 
-"sdk_version: 5.0.0" 
-"app_file: backend/space_app.py" 
-"pinned: false" 
-"---" 
+--- 
+title: Revenue Recovery Agent API 
+emoji: ?? 
+colorFrom: blue 
+colorTo: navy 
+sdk: gradio 
+sdk_version: 5.0.0 
+app_file: backend/space_app.py 
+pinned: false 
+--- 
