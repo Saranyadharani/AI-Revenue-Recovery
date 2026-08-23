@@ -5,7 +5,8 @@ It follows the same idea as an event queue + outbox pattern, I  just simplified 
 
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "data", "recovery.db")
 
@@ -74,8 +75,7 @@ def init_db():
 
 
 def now():
-    return datetime.utcnow().isoformat()
-
+    return datetime.now(timezone.utc).isoformat()
 
 if __name__ == "__main__":
     os.makedirs(os.path.join(os.path.dirname(__file__), "data"), exist_ok=True)
