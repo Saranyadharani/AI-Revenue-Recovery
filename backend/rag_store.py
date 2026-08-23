@@ -1,14 +1,7 @@
 """
-rag_store.py
-
-small curated "knowledge base" the agent pulls from before deciding what to do.
-docs are just python strings for now - kept it small on purpose (~15 docs)
-instead of dumping in a huge scraped dataset, since quality > volume here and
-its easier to explain every doc if someone asks me about it in the interview.
-
-using a super basic keyword-overlap retriever instead of a vector db because
-honestly for 15 docs a real embedding search is overkill. if this needed to
-scale to thousands of docs id switch to chroma/faiss.
+It is small curated "knowledge base" the agent pulls from before deciding what to do.docs are just python strings for now - kept it small on purpose (~15 docs)
+instead of dumping in a huge scraped dataset, since quality > volume using a super basic keyword-overlap retriever instead of a vector db because
+honestly for 15 docs a real embedding search is overkill. if this needed to scale to thousands of docs id switch to chroma/faiss.
 """
 
 DOCS = [
@@ -101,10 +94,6 @@ DOCS = [
 
 
 def retrieve(query, top_k=3):
-    """
-    dumb keyword overlap retriever. splits query + doc into words, counts overlap.
-    not going to win any nlp awards but works fine for our small doc set.
-    """
     query_words = set(query.lower().replace("_", " ").split())
 
     scored = []
