@@ -19,6 +19,10 @@ using groq because its free and fast, model is llama-3.3-70b via groq's api.
 import os
 import sys
 import json
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -60,8 +64,6 @@ def get_llm():
             "run: export GROQ_API_KEY=your_key_here"
         )
     return ChatGroq(model="openai/gpt-oss-120b", api_key=api_key, temperature=0)
-
-
 
 
 def diagnose_and_decide(llm, txn):

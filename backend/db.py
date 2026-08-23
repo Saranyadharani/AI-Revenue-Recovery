@@ -8,7 +8,7 @@ same idea as an event queue + outbox pattern, just simplified to one file.
 
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "data", "recovery.db")
 
@@ -76,8 +76,9 @@ def init_db():
     print("db initialized at", DB_PATH)
 
 
+
 def now():
-    return datetime.utcnow().isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 if __name__ == "__main__":
