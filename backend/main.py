@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import get_conn, init_db
-import agent  # <-- IMPORT AGENT AT THE TOP
+import agent
 
 app = FastAPI(title="revenue recovery agent api")
 
@@ -15,6 +15,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.on_event("startup")
 def startup():

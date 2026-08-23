@@ -1,9 +1,6 @@
-/* using Inter since its the closest free font to what razorpay actually uses
-   on their dashboard - a geometric sans, not overly rounded */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* razorpay's actual brand colors - navy + dodger blue, pulled from their logo */
   --navy: #0c2651;
   --navy-light: #163a6e;
   --blue: #0d94fb;

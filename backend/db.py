@@ -1,9 +1,6 @@
 """
-db.py - sets up our sqlite db and gives some helper functions to read/write to it
-
-using sqlite instead of postgres/redis because its a hackathon project and i dont
-want to spend time debugging docker containers instead of building the actual agent.
-same idea as an event queue + outbox pattern, just simplified to one file.
+using sqlite instead of postgres/redis for demo
+It follows the same idea as an event queue + outbox pattern, I  just simplified it to one file.
 """
 
 import sqlite3
@@ -15,7 +12,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "data", "recovery.db")
 
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # so we can access columns by name, easier than tuples
+    conn.row_factory = sqlite3.Row  
     return conn
 
 
@@ -76,12 +73,10 @@ def init_db():
     print("db initialized at", DB_PATH)
 
 
-
 def now():
     return datetime.now(timezone.utc).isoformat()
 
 
 if __name__ == "__main__":
-    # so i can just run `python db.py` to reset the db while testing
     os.makedirs(os.path.join(os.path.dirname(__file__), "data"), exist_ok=True)
     init_db()
