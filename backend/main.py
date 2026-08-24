@@ -1,12 +1,3 @@
-"""
-main.py - fastapi app that serves data to the react dashboard.
-
-kept the api pretty flat/simple - a stats endpoint for the headline numbers,
-a transactions endpoint for the table, and one to trigger the agent batch run.
-not doing any auth since this is just a demo, would obviously need that for
-anything real.
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -81,9 +72,6 @@ def get_transactions():
 
 @app.get("/api/transactions/{txn_id}/audit")
 def get_txn_audit(txn_id: int):
-    """the full trail for one transaction - decisions + what actually happened.
-    this is what backs the 'audit trail' requirement, click into any row and
-    see exactly why the agent did what it did"""
     conn = get_conn()
     decisions = conn.execute(
         "SELECT * FROM decisions WHERE txn_id=? ORDER BY id", (txn_id,)
@@ -100,9 +88,6 @@ def get_txn_audit(txn_id: int):
 
 @app.post("/api/run-batch")
 def run_batch_endpoint():
-    """kicks off the agent over all pending txns. this can take a while since
-    its calling the llm once per transaction, so its blocking for the demo -
-    fine for a batch of ~80, would need a background job for anything bigger"""
     import agent
     results = agent.run_batch()
     return {"processed": len(results), "results": results}
@@ -110,9 +95,6 @@ def run_batch_endpoint():
 
 @app.post("/api/reset")
 def reset_endpoint():
-    """wipes all data and reseeds 80 fresh pending transactions. lets us
-    get a clean demo state on the deployed version without needing shell
-    access to render - just hit this from the dashboard before a demo"""
     import os
     import seed_data
 
