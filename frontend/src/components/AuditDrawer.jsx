@@ -1,8 +1,3 @@
-// slide-over panel showing the FULL audit trail for one txn - the agent's
-// diagnosis, what it decided, whether the circuit breaker overrode it,
-// and what actually happened when the mcp tool ran.
-// this is what backs the "audit trail" requirement from the brief
-
 import { useEffect, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
