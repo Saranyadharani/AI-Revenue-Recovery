@@ -1,6 +1,3 @@
-// shows the headline numbers at the top - this is basically what the pitch
-// video should be zoomed in on. total recovered is the number that matters most
-
 export default function StatsCards({ stats }) {
   if (!stats) return null;
 
