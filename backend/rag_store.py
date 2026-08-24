@@ -1,14 +1,7 @@
-"""
-rag_store.py - simple keyword-based retrieval for failure docs + policy docs.
-in production this would be a vector store (chroma/weaviate/pinecone), but
-for the demo we keep it simple and deterministic.
-"""
-
 import os
 import json
 
-# hardcoded failure + policy docs for the demo.
-# in production these would be loaded from a database or vector store.
+# I have hardcoded failure + policy docs for the demo in production these would be loaded from a database or vector store.
 
 FAILURE_DOCS = {
     "insufficient_funds": {
@@ -149,7 +142,7 @@ def retrieve(query, top_k=3):
     # In a real system, you'd use a more sophisticated ranking
     results.extend(matched_failure_docs[:top_k])
     
-    # Ensure we don't return duplicates
+    # It ensures we don't return duplicates
     seen_ids = set()
     unique_results = []
     for doc in results:
