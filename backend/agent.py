@@ -1,21 +1,3 @@
-"""
-agent.py
-
-the actual brains of the project. for each pending transaction:
-  1. pull relevant docs from rag_store (failure reason + policy)
-  2. ask the llm to diagnose + decide an action, given the docs
-  3. check circuit_breaker before doing anything (this can override the llm!)
-  4. write the decision to the outbox table BEFORE calling any tool
-  5. call the right mcp tool
-  6. log what happened to audit_log
-
-note: step 3 is important - even if the llm says "retry", if the circuit
-breaker says no more attempts, we escalate instead. the llm doesn't get to
-override the safety rules, its only proposing an action.
-
-using groq (openai/gpt-oss-120b) for the llm calls, free tier.
-"""
-
 import os
 import sys
 import json
@@ -23,7 +5,6 @@ import time
 from dotenv import load_dotenv
 
 load_dotenv()
-
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from langchain_groq import ChatGroq
@@ -55,7 +36,6 @@ Respond with ONLY valid JSON, nothing else, in this exact shape:
 {"diagnosis": "...", "action": "retry_payment|send_recovery_link|escalate_to_human", "reasoning": "cite doc id(s) here, e.g. per [policy_consent_and_contact_limits], ..."}
 """
 
-# tools map for calling the actual mcp action functions
 ACTION_FUNCS = {
     "retry_payment": retry_payment,
     "send_recovery_link": send_recovery_link,
@@ -66,32 +46,19 @@ ACTION_FUNCS = {
 def get_llm():
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        raise RuntimeError(
-            "GROQ_API_KEY not set. add it to your .env file: "
-            "GROQ_API_KEY=your_key_here"
-        )
-    # gpt-oss-120b is the current valid production model on groq (llama-3.3-70b
-    # got fully deprecated, not just rate limited - it 404s now). free tier is
-    # 8K TPM which is tight, so we cap max_tokens hard to keep each response
-    # small since we only need a short json object back, not an essay
+        raise RuntimeError("GROQ_API_KEY not set in .env file")
+    
     model_name = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
     return ChatGroq(model=model_name, api_key=api_key, temperature=0, max_tokens=400)
 
 
 def diagnose_and_decide(llm, txn):
-    """asks the llm what to do about this one transaction, grounded in rag docs.
-    retries with backoff if we hit groq's free tier rate limit instead of
-    just crashing the whole batch run"""
     query = f"{txn['failure_code']} {txn['failure_type']}"
     failure_docs = retrieve(query, top_k=2)
 
-    # policy docs apply universally, not just when keywords happen to match -
-    # always include them so the agent has something concrete to cite for
-    # compliance, instead of relying on keyword overlap to surface them
     policy_ids = {"policy_retry_limits", "policy_consent_and_contact_limits", "policy_escalation"}
     policy_docs = [d for d in DOCS if d["id"] in policy_ids]
 
-    # dedupe in case a policy doc also matched the keyword search
     seen = set()
     all_docs = []
     for d in failure_docs + policy_docs:
@@ -120,45 +87,33 @@ Relevant context:
             break
         except RateLimitError:
             wait = 20 * (attempt + 1)
-            print(f"  rate limited by groq, waiting {wait}s before retry...")
+            print(f"  rate limited, waiting {wait}s...")
             time.sleep(wait)
         except APIError as e:
-            # catch any other groq api error (connection issues, server errors etc)
-            # so one bad call doesn't kill the whole batch run
-            print(f"  groq api error: {e}, waiting 10s before retry...")
+            print(f"  groq api error: {e}, waiting 10s...")
             time.sleep(10)
 
     if resp is None:
-        # gave up after retries - escalate rather than guess
         return {
-            "diagnosis": "llm unavailable after rate limit retries",
+            "diagnosis": "llm unavailable after retries",
             "action": "escalate_to_human",
-            "reasoning": "hit groq rate limit repeatedly, escalating to be safe",
+            "reasoning": "hit groq rate limit, escalating to be safe",
         }
 
-    # llms sometimes wrap json in markdown fences even when told not to, so
-    # strip that out before parsing
     raw = resp.content.strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
         if raw.startswith("json"):
             raw = raw[4:]
 
-    # Try to fix incomplete JSON
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
-        # Attempt to fix common JSON issues
         fixed_raw = raw
-        
-        # If reasoning is cut off, try to close it
         if '"reasoning":' in fixed_raw and not fixed_raw.strip().endswith('"}'):
-            # Find where reasoning starts
             reasoning_start = fixed_raw.find('"reasoning":')
             if reasoning_start != -1:
-                # Try to extract what we have and close it properly
                 fixed_raw = fixed_raw.strip()
-                # Add closing quote and braces if missing
                 if fixed_raw.count('"') % 2 == 1:
                     fixed_raw += '"'
                 if fixed_raw.count('{') > fixed_raw.count('}'):
@@ -168,46 +123,36 @@ Relevant context:
             parsed = json.loads(fixed_raw)
             print(f"  fixed incomplete JSON for txn {txn.get('id', 'unknown')}")
         except json.JSONDecodeError:
-            # fallback if the model didn't behave - just escalate to be safe
             parsed = {
                 "diagnosis": "could not parse model output",
                 "action": "escalate_to_human",
-                "reasoning": f"json parse failed, raw output was: {raw[:200]}",
+                "reasoning": f"json parse failed: {raw[:200]}",
             }
 
     return parsed
 
 
 def process_transaction(llm, txn_id):
-    """runs the full pipeline for one transaction. this is the function
-    that gets called in a loop over the whole batch"""
     conn = get_conn()
     txn = conn.execute("SELECT * FROM transactions WHERE id=?", (txn_id,)).fetchone()
     conn.close()
 
-    if txn is None:
+    if txn is None or txn["status"] != "pending":
         return None
 
-    if txn["status"] not in ("pending",):
-        return None  # skip stuff thats already resolved/escalated
-
-    # step 1+2: get llm's proposed diagnosis + action
     decision = diagnose_and_decide(llm, txn)
     proposed_action = decision["action"]
 
-    # step 3: circuit breaker gets final say, not the llm
     allowed, policy_reason = check_policy(txn)
 
     if should_escalate(txn):
         final_action = "escalate_to_human"
-        policy_reason = "max_attempts_reached, forcing escalation regardless of llm choice"
+        policy_reason = "max_attempts_reached, forcing escalation"
     elif not allowed:
         final_action = "escalate_to_human"
     else:
         final_action = proposed_action
 
-    # step 4: write to outbox BEFORE calling any tool - this is the important part,
-    # we want a record of the decision even if the tool call below fails/crashes
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
@@ -220,20 +165,15 @@ def process_transaction(llm, txn_id):
     conn.commit()
     conn.close()
 
-    # step 5: actually call the tool - this is local/simulated logic, no
-    # api call here so no rate limit risk (that's handled in diagnose_and_decide)
     action_func = ACTION_FUNCS[final_action]
     result = action_func(txn_id)
 
-    # step 6: audit log. status comes from what ACTUALLY happened (result),
-    # not from which action was chosen - a failed retry should stay pending
-    # so it can be picked up again, not get marked resolved
     if result["outcome"] == "success":
         final_status = "resolved"
     elif final_action == "escalate_to_human":
         final_status = "escalated"
     else:
-        final_status = "pending"  # failed attempt, stays pending for another try
+        final_status = "pending"
 
     conn = get_conn()
     cur = conn.cursor()
@@ -263,8 +203,6 @@ def process_transaction(llm, txn_id):
 
 
 def run_batch(limit=None):
-    """runs the agent over every pending transaction. this is what gives us
-    the 'measured money recovered across a batch' metric for the pitch"""
     llm = get_llm()
 
     conn = get_conn()
@@ -283,18 +221,12 @@ def run_batch(limit=None):
                 results.append(res)
                 print(f"  [{i+1}/{len(rows)}] txn {res['txn_id']}: {res['action']} -> {res['outcome']}")
         except Exception as e:
-            # don't let one bad transaction kill the entire batch - log it
-            # and move on, this transaction just stays pending for next run
-            print(f"  [{i+1}/{len(rows)}] txn {row['id']} failed with error: {e}")
+            print(f"  [{i+1}/{len(rows)}] txn {row['id']} failed: {e}")
 
-        # groq's free tier is 8K tokens/min for gpt-oss-120b, which is the
-        # actual binding constraint here (not the 30 req/min limit). each
-        # call is roughly ~700-750 tokens now that max_tokens is capped, so
-        # ~6.5s spacing keeps us comfortably under 8K TPM
         time.sleep(6.5)
 
     total_recovered = sum(r["amount_recovered"] for r in results)
-    print(f"\ndone. total recovered so far: {total_recovered:.2f}")
+    print(f"\ndone. total recovered: {total_recovered:.2f}")
     return results
 
 
