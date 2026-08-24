@@ -1,5 +1,3 @@
-// main table, click any row to open the audit trail for that txn
-
 export default function TransactionTable({ transactions, onSelect }) {
   const fmtMoney = (n) => "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
