@@ -31,7 +31,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from groq import RateLimitError, APIError
 
 from db import get_conn, now
-from rag_store import retrieve
+from rag_store import retrieve, DOCS
 from circuit_breaker import check_policy, should_escalate
 from mcp_tools.actions import retry_payment, send_recovery_link, escalate_to_human
 
@@ -45,8 +45,14 @@ recovery action:
   - send_recovery_link  (customer needs to act - new card, new session etc)
   - escalate_to_human   (nothing automated should be tried)
 
+Each context doc below has an id in brackets, like [fc_card_declined]. In
+your reasoning, cite the specific doc id(s) you relied on - don't just
+describe the policy in your own words, name which doc backs your decision.
+This matters for compliance auditing: we need to know exactly which policy
+justified an automated action, not just a paraphrase of it.
+
 Respond with ONLY valid JSON, nothing else, in this exact shape:
-{"diagnosis": "...", "action": "retry_payment|send_recovery_link|escalate_to_human", "reasoning": "..."}
+{"diagnosis": "...", "action": "retry_payment|send_recovery_link|escalate_to_human", "reasoning": "cite doc id(s) here, e.g. per [policy_consent_and_contact_limits], ..."}
 """
 
 # tools map for calling the actual mcp action functions
@@ -69,7 +75,7 @@ def get_llm():
     # 8K TPM which is tight, so we cap max_tokens hard to keep each response
     # small since we only need a short json object back, not an essay
     model_name = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
-    return ChatGroq(model=model_name, api_key=api_key, temperature=0, max_tokens=300)
+    return ChatGroq(model=model_name, api_key=api_key, temperature=0, max_tokens=400)
 
 
 def diagnose_and_decide(llm, txn):
@@ -77,8 +83,23 @@ def diagnose_and_decide(llm, txn):
     retries with backoff if we hit groq's free tier rate limit instead of
     just crashing the whole batch run"""
     query = f"{txn['failure_code']} {txn['failure_type']}"
-    docs = retrieve(query, top_k=3)
-    context_text = "\n\n".join(d["text"] for d in docs)
+    failure_docs = retrieve(query, top_k=2)
+
+    # policy docs apply universally, not just when keywords happen to match -
+    # always include them so the agent has something concrete to cite for
+    # compliance, instead of relying on keyword overlap to surface them
+    policy_ids = {"policy_retry_limits", "policy_consent_and_contact_limits", "policy_escalation"}
+    policy_docs = [d for d in DOCS if d["id"] in policy_ids]
+
+    # dedupe in case a policy doc also matched the keyword search
+    seen = set()
+    all_docs = []
+    for d in failure_docs + policy_docs:
+        if d["id"] not in seen:
+            seen.add(d["id"])
+            all_docs.append(d)
+
+    context_text = "\n\n".join(f"[{d['id']}] {d['text']}" for d in all_docs)
 
     user_msg = f"""
 Transaction:
@@ -123,15 +144,36 @@ Relevant context:
         if raw.startswith("json"):
             raw = raw[4:]
 
+    # Try to fix incomplete JSON
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
-        # fallback if the model didn't behave - just escalate to be safe
-        parsed = {
-            "diagnosis": "could not parse model output",
-            "action": "escalate_to_human",
-            "reasoning": f"json parse failed, raw output was: {raw[:200]}",
-        }
+        # Attempt to fix common JSON issues
+        fixed_raw = raw
+        
+        # If reasoning is cut off, try to close it
+        if '"reasoning":' in fixed_raw and not fixed_raw.strip().endswith('"}'):
+            # Find where reasoning starts
+            reasoning_start = fixed_raw.find('"reasoning":')
+            if reasoning_start != -1:
+                # Try to extract what we have and close it properly
+                fixed_raw = fixed_raw.strip()
+                # Add closing quote and braces if missing
+                if fixed_raw.count('"') % 2 == 1:
+                    fixed_raw += '"'
+                if fixed_raw.count('{') > fixed_raw.count('}'):
+                    fixed_raw += '}'
+        
+        try:
+            parsed = json.loads(fixed_raw)
+            print(f"  fixed incomplete JSON for txn {txn.get('id', 'unknown')}")
+        except json.JSONDecodeError:
+            # fallback if the model didn't behave - just escalate to be safe
+            parsed = {
+                "diagnosis": "could not parse model output",
+                "action": "escalate_to_human",
+                "reasoning": f"json parse failed, raw output was: {raw[:200]}",
+            }
 
     return parsed
 
