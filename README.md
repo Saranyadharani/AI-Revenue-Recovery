@@ -10,11 +10,8 @@ retry indefinitely or act outside policy.
 
 **Live demo:** [ai-revenue-recovery-silk.vercel.app](https://ai-revenue-recovery-silk.vercel.app)
 
-> Note: the backend runs on Render's free tier, which spins down after ~15
-> minutes idle. The first request after a gap can take 30–60s to wake up —
-> that's a cold start, not a bug.
+The backend runs on Render's free tier, which spins down after ~15minutes idle. The first request after a gap can take 30–60s to wake up — that's a cold start, not a bug.
 
----
 
 ## Architecture
 
