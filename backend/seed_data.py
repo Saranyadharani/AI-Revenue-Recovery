@@ -1,14 +1,8 @@
-"""
-seed_data.py - generates fake failed transactions so we have something to
-run the agent on. numbers are made up but the failure codes are based on
-real razorpay/payment gateway error codes i found online.
-"""
-
 import random
 import os
 from db import get_conn, init_db, now
 
-random.seed(42)  # keeping this fixed so results are reproducible for the demo
+random.seed(42)  # I have kept this fixed so results are reproducible for the demo
 
 FAILURE_TYPES = {
     "payment_failed": [
