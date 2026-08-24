@@ -67,9 +67,6 @@ frontend/
       StatsCards.jsx                   - headline recovery metrics
       TransactionTable.jsx              - transaction list
       AuditDrawer.jsx                    - click-through audit trail
-docs/
-  ARCHITECTURE.md                          - full design writeup + requirement mapping
-  LEARNINGS.md                              - what broke and how it got fixed, as it happened
 ```
 
 
