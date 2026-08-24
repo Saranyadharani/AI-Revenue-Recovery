@@ -1,8 +1,5 @@
-"""
-using sqlite instead of postgres/redis for demo
-It follows the same idea as an event queue + outbox pattern, I  just simplified it to one file.
-"""
 
+#It follows the same idea as an event queue + outbox pattern, I  just simplified it to one file.
 import sqlite3
 import os
 from datetime import datetime, timezone
@@ -38,8 +35,7 @@ def init_db():
     """)
 
     # outbox table - agent writes its decision + reasoning HERE first, before any
-    # mcp tool actually fires. so even if a tool call crashes we still have a record
-    # of what the agent decided and why
+    # mcp tool actually fires. so even if a tool call crashes we still have a record of what the agent decided and why
     cur.execute("""
         CREATE TABLE IF NOT EXISTS decisions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
