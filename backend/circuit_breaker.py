@@ -15,7 +15,7 @@ ESCALATE_AFTER = MAX_ATTEMPTS
 COOLDOWN_MINUTES = {
     "payment_failed": 10,
     "checkout_abandoned": 5,
-    "overdue": 1440,  
+    "overdue": 1440,
 }
 
 
@@ -38,7 +38,7 @@ def check_policy(txn):
         last_attempt_dt = datetime.fromisoformat(last_attempt)
         if last_attempt_dt.tzinfo is None:
             last_attempt_dt = last_attempt_dt.replace(tzinfo=timezone.utc)
-        elapsed_minutes = (datetime.now(timezone.utc) - last_attempt_dt).total_seconds() / 60
+        elapsed_minutes = (datetime.now(timezone.utc) - last_attempt_dt).seconds / 60
 
         if elapsed_minutes < cooldown:
             remaining = round(cooldown - elapsed_minutes, 1)
@@ -47,7 +47,9 @@ def check_policy(txn):
     return True, "ok"
 
 
-def should_escalate(txn):
+def should_escalate(txn, policy):
     failure_type = txn["failure_type"]
     limit = ESCALATE_AFTER.get(failure_type, 3)
+    if policy == "lenient":
+        limit += 1
     return txn["attempt_count"] >= limit
