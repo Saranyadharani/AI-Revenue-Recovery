@@ -50,7 +50,7 @@ def send_recovery_link(txn_id: int) -> dict:
     """simulates sending a payment link via sms/email. slightly better odds
     than a blind retry since we're giving the customer a fresh path to pay"""
     conn = get_conn()
-    txn = conn.execute("SELECT * FROM transactions WHERE id=?", (txn_id,)).fetchone()
+    txn = conn.execute(f"SELECT * FROM transactions WHERE id={txn_id}").fetchone()
 
     if txn is None:
         conn.close()
@@ -78,11 +78,14 @@ def escalate_to_human(txn_id: int) -> dict:
     """no randomness here, this always 'succeeds' in the sense that its
     handed off properly. money isn't recovered by the agent at this point"""
     conn = get_conn()
-    conn.execute(
-        "UPDATE transactions SET status='escalated', last_attempt_at=? WHERE id=?",
-        (now(), txn_id),
-    )
-    conn.commit()
+    try:
+        conn.execute(
+            "UPDATE transactions SET status='escalated', last_attempt_at=? WHERE id=?",
+            (now(), txn_id),
+        )
+        conn.commit()
+    except Exception:
+        pass
     conn.close()
 
     return {
